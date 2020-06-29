@@ -230,7 +230,12 @@ def kill_processes(processes):
             pass
 
 
-def cores_for_worker_process(worker_idx, num_workers, cpu_count):
+def cores_for_worker_process(worker_idx, num_workers, cpus):
+    if isinstance(cpus, int):
+        cpus = list(range(cpus))
+
+    cpu_count = len(cpus)
+
     worker_idx_modulo = worker_idx % cpu_count
 
     # trying to optimally assign workers to CPU cores to minimize context switching
@@ -250,7 +255,7 @@ def cores_for_worker_process(worker_idx, num_workers, cpu_count):
             cores_to_use = cpu_count // remaining_workers
             cores = list(range(worker_idx_modulo * cores_to_use, (worker_idx_modulo + 1) * cores_to_use, 1))
 
-    return cores
+    return [cpus[c] for c in cores] if cores is not None else None
 
 
 def set_process_cpu_affinity(worker_idx, num_workers):
@@ -259,8 +264,8 @@ def set_process_cpu_affinity(worker_idx, num_workers):
         return
 
     curr_process = psutil.Process()
-    cpu_count = psutil.cpu_count()
-    cores = cores_for_worker_process(worker_idx, num_workers, cpu_count)
+    cores = curr_process.cpu_affinity()
+    cores = cores_for_worker_process(worker_idx, num_workers, cores)
     if cores is not None:
         curr_process.cpu_affinity(cores)
 
